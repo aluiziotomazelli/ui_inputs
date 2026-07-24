@@ -32,7 +32,7 @@ public:
     int32_t get_steps() override;
 
 private:
-    long map_value(long x, long in_min, long in_max, long out_min, long out_max);
+    int32_t map_value(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
 
     idf_hals::IGpioHAL& gpio_hal_;
     idf_hals::ITimerHAL& timer_hal_;

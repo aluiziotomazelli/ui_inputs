@@ -26,10 +26,10 @@ Button::Button(idf_hals::IGpioHAL& gpio_hal,
 
 void Button::update() {
     uint32_t now = timer_hal_.get_time_us() / 1000;
-    int pressed_level = active_low_ ? 0 : 1;
-    int released_level = active_low_ ? 1 : 0;
+    int32_t pressed_level = active_low_ ? 0 : 1;
+    int32_t released_level = active_low_ ? 1 : 0;
     
-    int current_level = gpio_hal_.get_level(pin_);
+    int32_t current_level = gpio_hal_.get_level(pin_);
 
     last_click_type_ = ButtonClickType::NONE_CLICK;
 

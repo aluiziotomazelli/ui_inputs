@@ -24,7 +24,7 @@ namespace ui_inputs {
 #define H_CW_BEGIN_M    0x4
 #define H_CCW_BEGIN_M   0x5
 
-static const unsigned char ttable_full_step[7][4] = {
+static const uint8_t ttable_full_step[7][4] = {
     {R_START,    FS_R_CW_BEGIN, FS_R_CCW_BEGIN, R_START},
     {FS_R_CW_NEXT, R_START,    FS_R_CW_FINAL, R_START | DIR_CW},
     {FS_R_CW_NEXT, FS_R_CW_BEGIN, R_START,    R_START},
@@ -34,7 +34,7 @@ static const unsigned char ttable_full_step[7][4] = {
     {FS_R_CCW_NEXT, FS_R_CCW_FINAL, FS_R_CCW_BEGIN, R_START},
 };
 
-static const unsigned char ttable_half_step[6][4] = {
+static const uint8_t ttable_half_step[6][4] = {
     {H_START_M, H_CW_BEGIN,  H_CCW_BEGIN, R_START},
     {H_START_M | DIR_CCW, R_START, H_CCW_BEGIN, R_START},
     {H_START_M | DIR_CW, H_CW_BEGIN, R_START, R_START},
@@ -58,7 +58,7 @@ RotaryEncoder::RotaryEncoder(idf_hals::IGpioHAL& gpio_hal,
       accumulated_steps_(0) {
 }
 
-long RotaryEncoder::map_value(long x, long in_min, long in_max, long out_min, long out_max) {
+int32_t RotaryEncoder::map_value(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
     if (in_min == in_max) return out_min;
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
@@ -66,12 +66,12 @@ long RotaryEncoder::map_value(long x, long in_min, long in_max, long out_min, lo
 void RotaryEncoder::update() {
     uint8_t current_pin_states = (gpio_hal_.get_level(pin_a_) << 1) | gpio_hal_.get_level(pin_b_);
     
-    const unsigned char(*current_ttable)[4] = config_.half_step_mode ? ttable_half_step : ttable_full_step;
+    const uint8_t(*current_ttable)[4] = config_.half_step_mode ? ttable_half_step : ttable_full_step;
 
     rotary_state_ = current_ttable[rotary_state_ & 0x0F][current_pin_states];
 
     uint8_t direction = rotary_state_ & 0x30;
-    int steps = 0;
+    int32_t steps = 0;
 
     if (direction == DIR_CW) {
         steps = 1;
@@ -80,7 +80,7 @@ void RotaryEncoder::update() {
     }
 
     if (steps != 0) {
-        int current_multiplier_val = 1;
+        int32_t current_multiplier_val = 1;
 
         if (config_.acceleration_enabled) {
             uint32_t current_time_ms = timer_hal_.get_time_us() / 1000;
