@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS 
         "main.cpp"
-        "test_ui_inputs.cpp"
+        "test_button.cpp"
     
     INCLUDE_DIRS
         "."
