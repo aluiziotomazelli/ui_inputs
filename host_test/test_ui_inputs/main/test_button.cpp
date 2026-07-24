@@ -68,6 +68,35 @@ TEST_F(ButtonTest, SingleClickDetected) {
     EXPECT_EQ(button.get_last_click(), ButtonClickType::CLICK);
 }
 
+TEST_F(ButtonTest, ActiveHighSingleClick) {
+    ButtonConfig config;
+    config.debounce_press_ms = 20;
+    config.debounce_release_ms = 20;
+    config.double_click_ms = 300;
+
+    Button button(mock_gpio_, mock_timer_, pin_, false, config); // active_low = false
+
+    // Initial state: released (level = 0)
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
+    button.update();
+
+    // Press (level = 1)
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(1));
+    button.update();
+    advance_time_ms(25);
+    button.update();
+
+    // Release (level = 0)
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
+    button.update();
+    advance_time_ms(25);
+    button.update();
+
+    advance_time_ms(350);
+    button.update();
+    EXPECT_EQ(button.get_last_click(), ButtonClickType::CLICK);
+}
+
 TEST_F(ButtonTest, DoubleClickDetected) {
     ButtonConfig config;
     config.debounce_press_ms = 20;
@@ -170,6 +199,83 @@ TEST_F(ButtonTest, PressGlitchFiltered) {
     button.update(); // Checks level, finds it released -> back to WAIT_FOR_PRESS
 
     EXPECT_EQ(button.get_last_click(), ButtonClickType::NONE_CLICK);
+}
+
+TEST_F(ButtonTest, TimeoutAndRelease) {
+    ButtonConfig config;
+    config.debounce_press_ms = 20;
+    config.debounce_release_ms = 20;
+    config.timeout_ms = 6000;
+
+    Button button(mock_gpio_, mock_timer_, pin_, true, config);
+
+    // Press & pass debounce
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
+    button.update();
+    advance_time_ms(25);
+    button.update(); // WAIT_FOR_RELEASE
+
+    // Hold past timeout (6500ms)
+    advance_time_ms(6500);
+    button.update(); // Enters TIMEOUT_WAIT_FOR_RELEASE
+
+    // Still pressed
+    advance_time_ms(100);
+    button.update();
+
+    // Release
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(1));
+    button.update(); // Starts debounce release from timeout
+
+    advance_time_ms(25);
+    button.update(); // Confirms timeout release
+    EXPECT_EQ(button.get_last_click(), ButtonClickType::TIMEOUT);
+}
+
+TEST_F(ButtonTest, TimeoutErrorState) {
+    ButtonConfig config;
+    config.debounce_press_ms = 20;
+    config.timeout_ms = 6000;
+
+    Button button(mock_gpio_, mock_timer_, pin_, true, config);
+
+    // Press & pass debounce
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
+    button.update();
+    advance_time_ms(25);
+    button.update(); // WAIT_FOR_RELEASE
+
+    // Hold past timeout (6500ms)
+    advance_time_ms(6500);
+    button.update(); // TIMEOUT_WAIT_FOR_RELEASE
+
+    // Hold past 2 * timeout_ms (total press > 12000ms)
+    advance_time_ms(6000);
+    button.update();
+    EXPECT_EQ(button.get_last_click(), ButtonClickType::ERROR_STATE);
+}
+
+TEST_F(ButtonTest, PressedDuringDebounceRelease) {
+    ButtonConfig config;
+    config.debounce_press_ms = 20;
+    config.debounce_release_ms = 20;
+
+    Button button(mock_gpio_, mock_timer_, pin_, true, config);
+
+    // Press & pass debounce
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
+    button.update();
+    advance_time_ms(25);
+    button.update(); // WAIT_FOR_RELEASE
+
+    // Release
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(1));
+    button.update(); // DEBOUNCE_RELEASE
+
+    // Pressed again during release debounce
+    EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
+    advance_time_ms(25);
+    button.update(); // State goes to WAIT_FOR_DOUBLE
 }
 
 } // namespace ui_inputs
