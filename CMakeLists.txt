@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS 
+        "src/button.cpp"
+        "src/rotary_encoder.cpp"
+    INCLUDE_DIRS 
+        "include"
+    REQUIRES
+        "idf_hals"
+)
