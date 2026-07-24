@@ -2,6 +2,7 @@ idf_component_register(
     SRCS 
         "main.cpp"
         "test_button.cpp"
+        "test_rotary_encoder.cpp"
     
     INCLUDE_DIRS
         "."
