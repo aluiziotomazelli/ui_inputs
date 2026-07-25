@@ -11,6 +11,7 @@ enum class ButtonClickType {
     DOUBLE_CLICK,        ///< Double click
     LONG_CLICK,          ///< Long press (1+ seconds)
     VERY_LONG_CLICK,     ///< Very long press (3+ seconds)
+    HOLD_REPEAT,         ///< Periodic repeated hold event
     TIMEOUT,             ///< Press timeout
     ERROR_STATE          ///< Error state
 };

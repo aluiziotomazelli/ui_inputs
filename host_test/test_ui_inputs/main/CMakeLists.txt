@@ -3,6 +3,7 @@ idf_component_register(
         "main.cpp"
         "test_button.cpp"
         "test_rotary_encoder.cpp"
+        "test_touch_button.cpp"
     
     INCLUDE_DIRS
         "."

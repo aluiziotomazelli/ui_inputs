@@ -2,6 +2,7 @@ idf_component_register(
     SRCS 
         "src/button.cpp"
         "src/rotary_encoder.cpp"
+        "src/touch_button.cpp"
     INCLUDE_DIRS 
         "include"
     REQUIRES
