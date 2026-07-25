@@ -1,0 +1,15 @@
+#pragma once
+
+#include <gmock/gmock.h>
+#include "interfaces/i_switch.hpp"
+
+namespace ui_inputs {
+
+class MockISwitch : public ISwitch {
+public:
+    MOCK_METHOD(void, update, (), (override));
+    MOCK_METHOD(SwitchState, get_state, (), (const, override));
+    MOCK_METHOD(SwitchEvent, get_last_event, (), (override));
+};
+
+} // namespace ui_inputs

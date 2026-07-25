@@ -4,6 +4,7 @@ idf_component_register(
         "test_button.cpp"
         "test_rotary_encoder.cpp"
         "test_touch_button.cpp"
+        "test_switch.cpp"
     
     INCLUDE_DIRS
         "."

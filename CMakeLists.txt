@@ -3,6 +3,7 @@ idf_component_register(
         "src/button.cpp"
         "src/rotary_encoder.cpp"
         "src/touch_button.cpp"
+        "src/switch.cpp"
     INCLUDE_DIRS 
         "include"
     REQUIRES
