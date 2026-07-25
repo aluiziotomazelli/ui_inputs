@@ -43,6 +43,8 @@ esp_err_t TouchButton::init() {
 
     // 1. Allocate global controller lazily on first TouchButton instance
     if (s_sens_handle_ == nullptr) {
+        touch_sensor_config_t sens_cfg{};
+        touch_sensor_filter_config_t filter_cfg{};
 #if __has_include("driver/touch_sens.h")
 #if SOC_TOUCH_SENSOR_VERSION == 1
         touch_sensor_sample_config_t sample_cfg[TOUCH_SAMPLE_CFG_NUM] = {
@@ -53,14 +55,16 @@ esp_err_t TouchButton::init() {
             TOUCH_SENSOR_V2_DEFAULT_SAMPLE_CONFIG(500, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_2V2)
         };
 #endif
-        touch_sensor_config_t sens_cfg = TOUCH_SENSOR_DEFAULT_BASIC_CONFIG(TOUCH_SAMPLE_CFG_NUM, sample_cfg);
+        sens_cfg = TOUCH_SENSOR_DEFAULT_BASIC_CONFIG(TOUCH_SAMPLE_CFG_NUM, sample_cfg);
+        filter_cfg = TOUCH_SENSOR_DEFAULT_FILTER_CONFIG();
+#endif
+
         err = touch_hal_.new_controller(&sens_cfg, &s_sens_handle_);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to create touch controller: %d", err);
             return err;
         }
 
-        touch_sensor_filter_config_t filter_cfg = TOUCH_SENSOR_DEFAULT_FILTER_CONFIG();
         err = touch_hal_.config_filter(s_sens_handle_, &filter_cfg);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Failed to config touch filter: %d", err);
@@ -68,7 +72,6 @@ esp_err_t TouchButton::init() {
             s_sens_handle_ = nullptr;
             return err;
         }
-#endif
     } else {
         // Controller exists; temporarily disable scanning/controller to add new channel
         touch_hal_.stop_continuous_scanning(s_sens_handle_);
@@ -76,27 +79,29 @@ esp_err_t TouchButton::init() {
     }
 
     // 2. Allocate channel while controller is disabled (INIT state)
+    touch_channel_config_t chan_cfg{};
 #if __has_include("driver/touch_sens.h")
 #if SOC_TOUCH_SENSOR_VERSION == 1
-    touch_channel_config_t chan_cfg = {
+    chan_cfg = touch_channel_config_t{
         .abs_active_thresh = {1000},
         .charge_speed = TOUCH_CHARGE_SPEED_7,
         .init_charge_volt = TOUCH_INIT_CHARGE_VOLT_DEFAULT,
         .group = TOUCH_CHAN_TRIG_GROUP_BOTH
     };
 #else
-    touch_channel_config_t chan_cfg = {
+    chan_cfg = touch_channel_config_t{
         .active_thresh = {2000},
         .charge_speed = TOUCH_CHARGE_SPEED_7,
         .init_charge_volt = TOUCH_INIT_CHARGE_VOLT_DEFAULT
     };
 #endif
+#endif
+
     err = touch_hal_.new_channel(s_sens_handle_, channel_id_, &chan_cfg, &chan_handle_);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create channel %d: %d", channel_id_, err);
         return err;
     }
-#endif
 
     // 3. Enable controller now that channel is allocated
     err = touch_hal_.enable(s_sens_handle_);
@@ -106,11 +111,9 @@ esp_err_t TouchButton::init() {
     }
 
     // 4. Warm-up scans to populate channel filters before reading baseline
-#if __has_include("driver/touch_sens.h")
     for (int i = 0; i < 3; i++) {
         touch_hal_.trigger_oneshot_scanning(s_sens_handle_, 2000);
     }
-#endif
 
     // Read initial baseline
     if (touch_hal_.read_channel_data(chan_handle_, TOUCH_CHAN_DATA_TYPE_SMOOTH, &baseline_) != ESP_OK) {
