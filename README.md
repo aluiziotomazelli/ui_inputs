@@ -94,8 +94,9 @@ extern "C" void app_main(void)
     HalGpio gpio_hal;
     HalTimer timer_hal;
 
-    // 2. Instantiate push button (GPIO input and pull-up/down are configured automatically!)
+    // 2. Instantiate and initialize push button
     Button btn(gpio_hal, timer_hal, GPIO_NUM_0, true);
+    ESP_ERROR_CHECK(btn.init());
 
     // 3. Main polling loop
     while (1) {

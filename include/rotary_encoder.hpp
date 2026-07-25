@@ -29,6 +29,8 @@ public:
                   gpio_num_t pin_b,
                   const RotaryEncoderConfig& config = RotaryEncoderConfig{});
 
+    esp_err_t init() override;
+    esp_err_t deinit() override;
     void update() override;
     int32_t get_steps() override;
 
@@ -44,6 +46,7 @@ private:
     uint8_t rotary_state_;
     uint32_t last_step_time_ms_;
     int32_t accumulated_steps_;
+    bool is_initialized_;
 };
 
 } // namespace ui_inputs

@@ -23,7 +23,24 @@ TouchButton::TouchButton(idf_hals::ITouchHAL& touch_hal,
       last_hold_event_ms_(0),
       last_recalib_time_ms_(0),
       hold_generated_(false),
+      is_initialized_(false),
       last_click_type_(ButtonClickType::NONE_CLICK) {
+}
+
+esp_err_t TouchButton::init() {
+    if (is_initialized_) {
+        return ESP_OK;
+    }
+    is_initialized_ = true;
+    return ESP_OK;
+}
+
+esp_err_t TouchButton::deinit() {
+    if (!is_initialized_) {
+        return ESP_OK;
+    }
+    is_initialized_ = false;
+    return ESP_OK;
 }
 
 bool TouchButton::is_touched(uint32_t raw_val) const {
@@ -35,6 +52,10 @@ bool TouchButton::is_touched(uint32_t raw_val) const {
 }
 
 void TouchButton::update() {
+    if (!is_initialized_) {
+        return;
+    }
+
     uint32_t now = timer_hal_.get_time_us() / 1000;
     uint32_t raw_val = 0;
 

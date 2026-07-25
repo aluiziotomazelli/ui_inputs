@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "esp_err.h"
 
 namespace ui_inputs {
 
@@ -10,6 +11,18 @@ namespace ui_inputs {
 class IRotaryEncoder {
 public:
     virtual ~IRotaryEncoder() = default;
+
+    /**
+     * @brief Initializes the rotary encoder hardware resources.
+     * @return ESP_OK on success, or appropriate error code.
+     */
+    virtual esp_err_t init() = 0;
+
+    /**
+     * @brief Deinitializes and releases the rotary encoder hardware resources.
+     * @return ESP_OK on success.
+     */
+    virtual esp_err_t deinit() = 0;
 
     /**
      * @brief Updates the rotary encoder state machine.

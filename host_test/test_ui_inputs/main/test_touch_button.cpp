@@ -45,6 +45,7 @@ TEST_F(TouchButtonTest, SingleTouchClickAboveBaseline) {
 
     uint32_t baseline = 1000;
     TouchButton touch(mock_touch_, mock_timer_, chan_handle_, baseline, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
 
     // Initial state: untouched (1000)
     set_raw_value(1000);
@@ -81,6 +82,7 @@ TEST_F(TouchButtonTest, SingleTouchClickBelowBaseline) {
 
     uint32_t baseline = 1000;
     TouchButton touch(mock_touch_, mock_timer_, chan_handle_, baseline, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
 
     // Initial state: untouched (1000)
     set_raw_value(1000);
@@ -110,6 +112,7 @@ TEST_F(TouchButtonTest, TouchHoldAndHoldRepeat) {
     config.enable_hold_repeat = true;
 
     TouchButton touch(mock_touch_, mock_timer_, chan_handle_, 1000, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
 
     // Touch
     set_raw_value(1200);
@@ -146,6 +149,7 @@ TEST_F(TouchButtonTest, TouchGlitchFilter) {
     config.debounce_press_ms = 20;
 
     TouchButton touch(mock_touch_, mock_timer_, chan_handle_, 1000, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
 
     // Touch
     set_raw_value(1200);
@@ -166,6 +170,7 @@ TEST_F(TouchButtonTest, PassiveRecalibration) {
 
     uint32_t initial_baseline = 1000;
     TouchButton touch(mock_touch_, mock_timer_, chan_handle_, initial_baseline, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
 
     // Initial check
     set_raw_value(1050);
@@ -183,6 +188,7 @@ TEST_F(TouchButtonTest, PassiveRecalibration) {
 TEST_F(TouchButtonTest, FallbackToRawDataType) {
     TouchButtonConfig config;
     TouchButton touch(mock_touch_, mock_timer_, chan_handle_, 1000, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
 
     // SMOOTH type returns error, RAW type succeeds with 1200
     EXPECT_CALL(mock_touch_, read_channel_data(chan_handle_, TOUCH_CHAN_DATA_TYPE_SMOOTH, _))
@@ -194,6 +200,13 @@ TEST_F(TouchButtonTest, FallbackToRawDataType) {
     advance_time_ms(25);
     touch.update();
     EXPECT_EQ(touch.get_last_click(), ButtonClickType::NONE_CLICK);
+}
+
+TEST_F(TouchButtonTest, InitAndDeinit) {
+    TouchButtonConfig config;
+    TouchButton touch(mock_touch_, mock_timer_, chan_handle_, 1000, config);
+    EXPECT_EQ(touch.init(), ESP_OK);
+    EXPECT_EQ(touch.deinit(), ESP_OK);
 }
 
 } // namespace ui_inputs

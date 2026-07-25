@@ -45,6 +45,8 @@ enum class ButtonClickType {
 class IButton {
 public:
     virtual ~IButton() = default;
+    virtual esp_err_t init() = 0;
+    virtual esp_err_t deinit() = 0;
     virtual void update() = 0;
     virtual ButtonClickType get_last_click() = 0;
 };
@@ -60,6 +62,8 @@ Abstract interface representing a rotary encoder control.
 class IRotaryEncoder {
 public:
     virtual ~IRotaryEncoder() = default;
+    virtual esp_err_t init() = 0;
+    virtual esp_err_t deinit() = 0;
     virtual void update() = 0;
     virtual int32_t get_steps() = 0;
 };
@@ -86,6 +90,8 @@ enum class SwitchEvent {
 class ISwitch {
 public:
     virtual ~ISwitch() = default;
+    virtual esp_err_t init() = 0;
+    virtual esp_err_t deinit() = 0;
     virtual void update() = 0;
     virtual SwitchState get_state() const = 0;
     virtual SwitchEvent get_last_event() = 0;

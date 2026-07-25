@@ -26,6 +26,8 @@ public:
            bool active_low,
            const SwitchConfig& config = SwitchConfig{});
 
+    esp_err_t init() override;
+    esp_err_t deinit() override;
     void update() override;
     SwitchState get_state() const override;
     SwitchEvent get_last_event() override;
@@ -47,6 +49,7 @@ private:
     SwitchState pending_state_;
     uint32_t state_change_time_ms_;
     SwitchEvent last_event_;
+    bool is_initialized_;
 };
 
 } // namespace ui_inputs

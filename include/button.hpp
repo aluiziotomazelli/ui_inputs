@@ -31,6 +31,8 @@ public:
            bool active_low,
            const ButtonConfig& config = ButtonConfig{});
 
+    esp_err_t init() override;
+    esp_err_t deinit() override;
     void update() override;
     ButtonClickType get_last_click() override;
 
@@ -54,6 +56,7 @@ private:
     uint32_t last_time_ms_;
     uint32_t press_start_time_ms_;
     bool first_click_;
+    bool is_initialized_;
     
     ButtonClickType last_click_type_;
 };

@@ -36,6 +36,7 @@ TEST_F(ButtonTest, SingleClickDetected) {
     config.very_long_click_ms = 3000;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config); // active_low = true
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Initial state: released (level = 1)
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(1));
@@ -75,6 +76,7 @@ TEST_F(ButtonTest, ActiveHighSingleClick) {
     config.double_click_ms = 300;
 
     Button button(mock_gpio_, mock_timer_, pin_, false, config); // active_low = false
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Initial state: released (level = 0)
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -104,6 +106,7 @@ TEST_F(ButtonTest, DoubleClickDetected) {
     config.double_click_ms = 300;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // First click
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -142,6 +145,7 @@ TEST_F(ButtonTest, LongClickDetected) {
     config.very_long_click_ms = 3000;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Press
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -165,6 +169,7 @@ TEST_F(ButtonTest, VeryLongClickDetected) {
     config.very_long_click_ms = 3000;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Press
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -186,6 +191,7 @@ TEST_F(ButtonTest, PressGlitchFiltered) {
     config.debounce_press_ms = 20;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Press
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -208,6 +214,7 @@ TEST_F(ButtonTest, TimeoutAndRelease) {
     config.timeout_ms = 6000;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Press & pass debounce
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -238,6 +245,7 @@ TEST_F(ButtonTest, TimeoutErrorState) {
     config.timeout_ms = 6000;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Press & pass debounce
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -261,6 +269,7 @@ TEST_F(ButtonTest, PressedDuringDebounceRelease) {
     config.debounce_release_ms = 20;
 
     Button button(mock_gpio_, mock_timer_, pin_, true, config);
+    EXPECT_EQ(button.init(), ESP_OK);
 
     // Press & pass debounce
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
@@ -276,6 +285,12 @@ TEST_F(ButtonTest, PressedDuringDebounceRelease) {
     EXPECT_CALL(mock_gpio_, get_level(pin_)).WillRepeatedly(Return(0));
     advance_time_ms(25);
     button.update(); // State goes to WAIT_FOR_DOUBLE
+}
+
+TEST_F(ButtonTest, InitAndDeinit) {
+    Button button(mock_gpio_, mock_timer_, pin_, true);
+    EXPECT_EQ(button.init(), ESP_OK);
+    EXPECT_EQ(button.deinit(), ESP_OK);
 }
 
 } // namespace ui_inputs

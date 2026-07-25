@@ -1,5 +1,7 @@
 #pragma once
 
+#include "esp_err.h"
+
 namespace ui_inputs {
 
 /**
@@ -22,6 +24,18 @@ enum class ButtonClickType {
 class IButton {
 public:
     virtual ~IButton() = default;
+
+    /**
+     * @brief Initializes the button hardware resources.
+     * @return ESP_OK on success, or appropriate error code.
+     */
+    virtual esp_err_t init() = 0;
+
+    /**
+     * @brief Deinitializes and releases the button hardware resources.
+     * @return ESP_OK on success.
+     */
+    virtual esp_err_t deinit() = 0;
 
     /**
      * @brief Updates the button state machine.

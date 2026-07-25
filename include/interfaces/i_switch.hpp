@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "esp_err.h"
 
 namespace ui_inputs {
 
@@ -28,6 +29,18 @@ enum class SwitchEvent {
 class ISwitch {
 public:
     virtual ~ISwitch() = default;
+
+    /**
+     * @brief Initializes the switch hardware resources.
+     * @return ESP_OK on success, or appropriate error code.
+     */
+    virtual esp_err_t init() = 0;
+
+    /**
+     * @brief Deinitializes and releases the switch hardware resources.
+     * @return ESP_OK on success.
+     */
+    virtual esp_err_t deinit() = 0;
 
     /**
      * @brief Polls and updates the switch state machine.

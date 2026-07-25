@@ -39,6 +39,7 @@ TEST_F(RotaryEncoderTest, ClockwiseFullStep) {
     config.acceleration_enabled = false;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     // Initial resting state (1, 1)
     set_pins(1, 1);
@@ -60,6 +61,7 @@ TEST_F(RotaryEncoderTest, CounterClockwiseFullStep) {
     config.acceleration_enabled = false;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     // Initial resting state (1, 1)
     set_pins(1, 1);
@@ -81,6 +83,7 @@ TEST_F(RotaryEncoderTest, HalfStepModeCW) {
     config.acceleration_enabled = false;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     set_pins(1, 1); encoder.update();
     set_pins(0, 1); encoder.update();
@@ -102,6 +105,7 @@ TEST_F(RotaryEncoderTest, HalfStepModeCCW) {
     config.acceleration_enabled = false;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     set_pins(1, 1); encoder.update();
     set_pins(1, 0); encoder.update();
@@ -125,6 +129,7 @@ TEST_F(RotaryEncoderTest, StepAcceleration) {
     config.accel_max_multiplier = 5;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     // Initial resting state
     set_pins(1, 1); encoder.update();
@@ -154,6 +159,7 @@ TEST_F(RotaryEncoderTest, AccelerationDisabled) {
     config.acceleration_enabled = false;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     // Initial resting state
     set_pins(1, 1); encoder.update();
@@ -181,6 +187,7 @@ TEST_F(RotaryEncoderTest, GetStepsClearsAccumulator) {
     config.acceleration_enabled = false;
 
     RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_, config);
+    EXPECT_EQ(encoder.init(), ESP_OK);
 
     set_pins(1, 1); encoder.update();
     set_pins(0, 1); encoder.update();
@@ -191,6 +198,12 @@ TEST_F(RotaryEncoderTest, GetStepsClearsAccumulator) {
     EXPECT_EQ(encoder.get_steps(), 1);
     // Second call should return 0
     EXPECT_EQ(encoder.get_steps(), 0);
+}
+
+TEST_F(RotaryEncoderTest, InitAndDeinit) {
+    RotaryEncoder encoder(mock_gpio_, mock_timer_, pin_a_, pin_b_);
+    EXPECT_EQ(encoder.init(), ESP_OK);
+    EXPECT_EQ(encoder.deinit(), ESP_OK);
 }
 
 } // namespace ui_inputs

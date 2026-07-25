@@ -3,26 +3,36 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "esp_log.h"
 
-static const char *TAG = "Switch";
+static const char* TAG = "Switch";
 
 namespace ui_inputs {
 
-Switch::Switch(idf_hals::IGpioHAL& gpio_hal,
-               idf_hals::ITimerHAL& timer_hal,
-               gpio_num_t pin,
-               bool active_low,
-               const SwitchConfig& config)
-    : gpio_hal_(gpio_hal),
-      timer_hal_(timer_hal),
-      pin_(pin),
-      active_low_(active_low),
-      config_(config),
-      fsm_state_(FsmState::STABLE),
-      current_state_(SwitchState::OPEN),
-      pending_state_(SwitchState::OPEN),
-      state_change_time_ms_(0),
-      last_event_(SwitchEvent::NONE) {
-    
+Switch::Switch(
+    idf_hals::IGpioHAL& gpio_hal,
+    idf_hals::ITimerHAL& timer_hal,
+    gpio_num_t pin,
+    bool active_low,
+    const SwitchConfig& config)
+    : gpio_hal_(gpio_hal)
+    , timer_hal_(timer_hal)
+    , pin_(pin)
+    , active_low_(active_low)
+    , config_(config)
+    , fsm_state_(FsmState::STABLE)
+    , current_state_(SwitchState::OPEN)
+    , pending_state_(SwitchState::OPEN)
+    , state_change_time_ms_(0)
+    , last_event_(SwitchEvent::NONE)
+    , is_initialized_(false)
+{
+}
+
+esp_err_t Switch::init()
+{
+    if (is_initialized_) {
+        return ESP_OK;
+    }
+
     gpio_config_t io_conf = {};
     io_conf.pin_bit_mask = (1ULL << pin_);
     io_conf.mode = GPIO_MODE_INPUT;
@@ -30,19 +40,44 @@ Switch::Switch(idf_hals::IGpioHAL& gpio_hal,
     if (config_.enable_internal_pull) {
         io_conf.pull_up_en = active_low_ ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE;
         io_conf.pull_down_en = active_low_ ? GPIO_PULLDOWN_DISABLE : GPIO_PULLDOWN_ENABLE;
-    } else {
+    }
+    else {
         io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
         io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     }
-    gpio_hal_.config(&io_conf);
+
+    esp_err_t err = gpio_hal_.config(&io_conf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to configure GPIO pin %d: %s", pin_, esp_err_to_name(err));
+        return err;
+    }
 
     int32_t level = gpio_hal_.get_level(pin_);
     int32_t closed_level = active_low_ ? 0 : 1;
     current_state_ = (level == closed_level) ? SwitchState::CLOSED : SwitchState::OPEN;
     pending_state_ = current_state_;
+
+    is_initialized_ = true;
+    return ESP_OK;
 }
 
-void Switch::update() {
+esp_err_t Switch::deinit()
+{
+    if (!is_initialized_) {
+        return ESP_OK;
+    }
+
+    gpio_hal_.reset_pin(pin_);
+    is_initialized_ = false;
+    return ESP_OK;
+}
+
+void Switch::update()
+{
+    if (!is_initialized_) {
+        ESP_LOGE(TAG, "Switch not initialized");
+        return;
+    }
     uint32_t now = timer_hal_.get_time_us() / 1000;
     int32_t current_level = gpio_hal_.get_level(pin_);
     int32_t closed_level = active_low_ ? 0 : 1;
@@ -64,23 +99,29 @@ void Switch::update() {
         if (sampled_state != pending_state_) {
             fsm_state_ = FsmState::STABLE;
             ESP_LOGD(TAG, "Switch state bounced back (Pin: %d), cancelling debounce", pin_);
-        } else if (now - state_change_time_ms_ > config_.debounce_ms) {
+        }
+        else if (now - state_change_time_ms_ > config_.debounce_ms) {
             current_state_ = pending_state_;
             fsm_state_ = FsmState::STABLE;
-            last_event_ = (current_state_ == SwitchState::CLOSED) ? 
-                          SwitchEvent::CHANGED_TO_CLOSED : SwitchEvent::CHANGED_TO_OPEN;
-            ESP_LOGD(TAG, "Switch state confirmed: %s (Pin: %d)",
-                     (current_state_ == SwitchState::CLOSED) ? "CLOSED" : "OPEN", pin_);
+            last_event_ =
+                (current_state_ == SwitchState::CLOSED) ? SwitchEvent::CHANGED_TO_CLOSED : SwitchEvent::CHANGED_TO_OPEN;
+            ESP_LOGD(
+                TAG,
+                "Switch state confirmed: %s (Pin: %d)",
+                (current_state_ == SwitchState::CLOSED) ? "CLOSED" : "OPEN",
+                pin_);
         }
         break;
     }
 }
 
-SwitchState Switch::get_state() const {
+SwitchState Switch::get_state() const
+{
     return current_state_;
 }
 
-SwitchEvent Switch::get_last_event() {
+SwitchEvent Switch::get_last_event()
+{
     SwitchEvent evt = last_event_;
     last_event_ = SwitchEvent::NONE;
     return evt;

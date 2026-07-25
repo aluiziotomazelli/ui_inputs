@@ -3,25 +3,36 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_INFO
 #include "esp_log.h"
 
-static const char *TAG = "Button";
+static const char* TAG = "Button";
 
 namespace ui_inputs {
 
-Button::Button(idf_hals::IGpioHAL& gpio_hal,
-               idf_hals::ITimerHAL& timer_hal,
-               gpio_num_t pin,
-               bool active_low,
-               const ButtonConfig& config)
-    : gpio_hal_(gpio_hal),
-      timer_hal_(timer_hal),
-      pin_(pin),
-      active_low_(active_low),
-      config_(config),
-      state_(State::WAIT_FOR_PRESS),
-      last_time_ms_(0),
-      press_start_time_ms_(0),
-      first_click_(false),
-      last_click_type_(ButtonClickType::NONE_CLICK) {
+Button::Button(
+    idf_hals::IGpioHAL& gpio_hal,
+    idf_hals::ITimerHAL& timer_hal,
+    gpio_num_t pin,
+    bool active_low,
+    const ButtonConfig& config)
+    : gpio_hal_(gpio_hal)
+    , timer_hal_(timer_hal)
+    , pin_(pin)
+    , active_low_(active_low)
+    , config_(config)
+    , state_(State::WAIT_FOR_PRESS)
+    , last_time_ms_(0)
+    , press_start_time_ms_(0)
+    , first_click_(false)
+    , is_initialized_(false)
+    , last_click_type_(ButtonClickType::NONE_CLICK)
+{
+}
+
+esp_err_t Button::init()
+{
+    if (is_initialized_) {
+        return ESP_OK;
+    }
+
     gpio_config_t io_conf = {};
     io_conf.pin_bit_mask = (1ULL << pin_);
     io_conf.mode = GPIO_MODE_INPUT;
@@ -29,18 +40,44 @@ Button::Button(idf_hals::IGpioHAL& gpio_hal,
     if (config_.enable_internal_pull) {
         io_conf.pull_up_en = active_low_ ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE;
         io_conf.pull_down_en = active_low_ ? GPIO_PULLDOWN_DISABLE : GPIO_PULLDOWN_ENABLE;
-    } else {
+    }
+    else {
         io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
         io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     }
-    gpio_hal_.config(&io_conf);
+
+    esp_err_t err = gpio_hal_.config(&io_conf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to configure GPIO pin %d: %s", pin_, esp_err_to_name(err));
+        return err;
+    }
+
+    is_initialized_ = true;
+    return ESP_OK;
 }
 
-void Button::update() {
+esp_err_t Button::deinit()
+{
+    if (!is_initialized_) {
+        return ESP_OK;
+    }
+
+    gpio_hal_.reset_pin(pin_);
+    is_initialized_ = false;
+    return ESP_OK;
+}
+
+void Button::update()
+{
+    if (!is_initialized_) {
+        ESP_LOGE(TAG, "Button not initialized");
+        return;
+    }
+
     uint32_t now = timer_hal_.get_time_us() / 1000;
     int32_t pressed_level = active_low_ ? 0 : 1;
     int32_t released_level = active_low_ ? 1 : 0;
-    
+
     int32_t current_level = gpio_hal_.get_level(pin_);
 
     last_click_type_ = ButtonClickType::NONE_CLICK;
@@ -59,7 +96,8 @@ void Button::update() {
             if (current_level == pressed_level) {
                 state_ = State::WAIT_FOR_RELEASE;
                 ESP_LOGD(TAG, "WAIT_FOR_RELEASE (Pin: %d)", pin_);
-            } else {
+            }
+            else {
                 state_ = State::WAIT_FOR_PRESS;
                 ESP_LOGD(TAG, "Premature release, back to WAIT_FOR_PRESS (Pin: %d)", pin_);
             }
@@ -73,14 +111,17 @@ void Button::update() {
             if (duration > config_.very_long_click_ms) {
                 state_ = State::WAIT_FOR_PRESS;
                 last_click_type_ = ButtonClickType::VERY_LONG_CLICK;
-            } else if (duration > config_.long_click_ms) {
+            }
+            else if (duration > config_.long_click_ms) {
                 state_ = State::WAIT_FOR_PRESS;
                 last_click_type_ = ButtonClickType::LONG_CLICK;
-            } else {
+            }
+            else {
                 last_time_ms_ = now;
                 state_ = State::DEBOUNCE_RELEASE;
             }
-        } else if (now - press_start_time_ms_ > config_.timeout_ms) {
+        }
+        else if (now - press_start_time_ms_ > config_.timeout_ms) {
             state_ = State::TIMEOUT_WAIT_FOR_RELEASE;
             last_time_ms_ = now;
             ESP_LOGD(TAG, "TIMEOUT WAIT FOR RELEASE (Pin: %d)", pin_);
@@ -92,7 +133,8 @@ void Button::update() {
             if (current_level == released_level) {
                 state_ = State::WAIT_FOR_DOUBLE;
                 ESP_LOGD(TAG, "DEBOUNCE RELEASED (Pin: %d)", pin_);
-            } else {
+            }
+            else {
                 state_ = State::WAIT_FOR_DOUBLE;
                 ESP_LOGD(TAG, "Pressed during DEBOUNCE_RELEASE (Pin: %d)", pin_);
             }
@@ -105,12 +147,14 @@ void Button::update() {
             first_click_ = true;
             state_ = State::DEBOUNCE_PRESS;
             ESP_LOGD(TAG, "Second click detected (Pin: %d)", pin_);
-        } else if (now - last_time_ms_ > config_.double_click_ms) {
+        }
+        else if (now - last_time_ms_ > config_.double_click_ms) {
             state_ = State::WAIT_FOR_PRESS;
             if (first_click_) {
                 first_click_ = false;
                 last_click_type_ = ButtonClickType::DOUBLE_CLICK;
-            } else {
+            }
+            else {
                 last_click_type_ = ButtonClickType::CLICK;
             }
         }
@@ -124,7 +168,8 @@ void Button::update() {
                 ESP_LOGD(TAG, "TIMEOUT RELEASED (Pin: %d)", pin_);
                 last_click_type_ = ButtonClickType::TIMEOUT;
             }
-        } else {
+        }
+        else {
             last_time_ms_ = now;
             if (now - press_start_time_ms_ > 2 * config_.timeout_ms) {
                 state_ = State::WAIT_FOR_PRESS;
@@ -136,7 +181,8 @@ void Button::update() {
     }
 }
 
-ButtonClickType Button::get_last_click() {
+ButtonClickType Button::get_last_click()
+{
     ButtonClickType click = last_click_type_;
     last_click_type_ = ButtonClickType::NONE_CLICK;
     return click;
