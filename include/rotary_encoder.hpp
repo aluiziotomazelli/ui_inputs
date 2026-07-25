@@ -14,7 +14,7 @@ struct RotaryEncoderConfig {
     bool half_step_mode{true};
     bool acceleration_enabled{true};
     uint16_t accel_gap_ms{50};
-    uint32_t accel_multiplier{2};        ///< Multiplier added per fast step
+    uint8_t accel_max_multiplier{5};
     bool enable_internal_pull{true};       ///< Enable internal pull-up resistors for pins A and B
 };
 
