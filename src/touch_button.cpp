@@ -7,34 +7,37 @@
 #include "driver/touch_sens.h"
 #endif
 
-static const char *TAG = "TouchButton";
+static const char* TAG = "TouchButton";
 
 namespace ui_inputs {
 
 touch_sensor_handle_t TouchButton::s_sens_handle_ = nullptr;
 uint8_t TouchButton::s_active_instances_ = 0;
 
-TouchButton::TouchButton(idf_hals::ITouchHAL& touch_hal,
-                         idf_hals::ITimerHAL& timer_hal,
-                         int channel_id,
-                         const TouchButtonConfig& config)
-    : touch_hal_(touch_hal),
-      timer_hal_(timer_hal),
-      channel_id_(channel_id),
-      chan_handle_(nullptr),
-      config_(config),
-      state_(State::WAIT_FOR_PRESS),
-      baseline_(0),
-      last_time_ms_(0),
-      press_start_time_ms_(0),
-      last_hold_event_ms_(0),
-      last_recalib_time_ms_(0),
-      hold_generated_(false),
-      is_initialized_(false),
-      last_click_type_(ButtonClickType::NONE_CLICK) {
+TouchButton::TouchButton(
+    idf_hals::ITouchHAL& touch_hal,
+    idf_hals::ITimerHAL& timer_hal,
+    int channel_id,
+    const TouchButtonConfig& config)
+    : touch_hal_(touch_hal)
+    , timer_hal_(timer_hal)
+    , channel_id_(channel_id)
+    , chan_handle_(nullptr)
+    , config_(config)
+    , state_(State::WAIT_FOR_PRESS)
+    , baseline_(0)
+    , last_time_ms_(0)
+    , press_start_time_ms_(0)
+    , last_hold_event_ms_(0)
+    , last_recalib_time_ms_(0)
+    , hold_generated_(false)
+    , is_initialized_(false)
+    , last_click_type_(ButtonClickType::NONE_CLICK)
+{
 }
 
-esp_err_t TouchButton::init() {
+esp_err_t TouchButton::init()
+{
     if (is_initialized_) {
         return ESP_OK;
     }
@@ -48,15 +51,16 @@ esp_err_t TouchButton::init() {
 #if __has_include("driver/touch_sens.h")
 #if SOC_TOUCH_SENSOR_VERSION == 1
         touch_sensor_sample_config_t sample_cfg[TOUCH_SAMPLE_CFG_NUM] = {
-            TOUCH_SENSOR_V1_DEFAULT_SAMPLE_CONFIG(5.0, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_1V7)
-        };
+            TOUCH_SENSOR_V1_DEFAULT_SAMPLE_CONFIG(5.0, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_1V7)};
 #else
         touch_sensor_sample_config_t sample_cfg[TOUCH_SAMPLE_CFG_NUM] = {
-            TOUCH_SENSOR_V2_DEFAULT_SAMPLE_CONFIG(500, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_2V2)
-        };
+            TOUCH_SENSOR_V2_DEFAULT_SAMPLE_CONFIG(500, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_2V2)};
 #endif
         sens_cfg = TOUCH_SENSOR_DEFAULT_BASIC_CONFIG(TOUCH_SAMPLE_CFG_NUM, sample_cfg);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
         filter_cfg = TOUCH_SENSOR_DEFAULT_FILTER_CONFIG();
+#pragma GCC diagnostic pop
 #endif
 
         err = touch_hal_.new_controller(&sens_cfg, &s_sens_handle_);
@@ -72,7 +76,8 @@ esp_err_t TouchButton::init() {
             s_sens_handle_ = nullptr;
             return err;
         }
-    } else {
+    }
+    else {
         // Controller exists; temporarily disable scanning/controller to add new channel
         touch_hal_.stop_continuous_scanning(s_sens_handle_);
         touch_hal_.disable(s_sens_handle_);
@@ -86,14 +91,12 @@ esp_err_t TouchButton::init() {
         .abs_active_thresh = {1000},
         .charge_speed = TOUCH_CHARGE_SPEED_7,
         .init_charge_volt = TOUCH_INIT_CHARGE_VOLT_DEFAULT,
-        .group = TOUCH_CHAN_TRIG_GROUP_BOTH
-    };
+        .group = TOUCH_CHAN_TRIG_GROUP_BOTH};
 #else
     chan_cfg = touch_channel_config_t{
         .active_thresh = {2000},
         .charge_speed = TOUCH_CHARGE_SPEED_7,
-        .init_charge_volt = TOUCH_INIT_CHARGE_VOLT_DEFAULT
-    };
+        .init_charge_volt = TOUCH_INIT_CHARGE_VOLT_DEFAULT};
 #endif
 #endif
 
@@ -129,7 +132,8 @@ esp_err_t TouchButton::init() {
     return ESP_OK;
 }
 
-esp_err_t TouchButton::deinit() {
+esp_err_t TouchButton::deinit()
+{
     if (!is_initialized_) {
         return ESP_OK;
     }
@@ -154,15 +158,18 @@ esp_err_t TouchButton::deinit() {
     return ESP_OK;
 }
 
-bool TouchButton::is_touched(uint32_t raw_val) const {
+bool TouchButton::is_touched(uint32_t raw_val) const
+{
     if (config_.trigger_mode == TouchTriggerMode::ABOVE_BASELINE) {
         return raw_val > (baseline_ + config_.threshold_delta);
-    } else {
+    }
+    else {
         return raw_val < (baseline_ > config_.threshold_delta ? baseline_ - config_.threshold_delta : 0);
     }
 }
 
-void TouchButton::update() {
+void TouchButton::update()
+{
     if (!is_initialized_) {
         return;
     }
@@ -183,10 +190,12 @@ void TouchButton::update() {
             press_start_time_ms_ = now;
             state_ = State::DEBOUNCE_PRESS;
             ESP_LOGD(TAG, "TOUCH DEBOUNCE START (Raw: %" PRIu32 ", Baseline: %" PRIu32 ")", raw_val, baseline_);
-        } else {
+        }
+        else {
             if (last_recalib_time_ms_ == 0) {
                 last_recalib_time_ms_ = now;
-            } else if (now - last_recalib_time_ms_ >= config_.recalibration_interval_ms) {
+            }
+            else if (now - last_recalib_time_ms_ >= config_.recalibration_interval_ms) {
                 last_recalib_time_ms_ = now;
                 baseline_ = raw_val;
                 ESP_LOGI(TAG, "Touch baseline recalibrated to %" PRIu32, baseline_);
@@ -200,7 +209,8 @@ void TouchButton::update() {
                 state_ = State::WAIT_FOR_RELEASE_OR_HOLD;
                 hold_generated_ = false;
                 ESP_LOGD(TAG, "TOUCH WAIT_FOR_RELEASE_OR_HOLD");
-            } else {
+            }
+            else {
                 state_ = State::WAIT_FOR_PRESS;
                 ESP_LOGD(TAG, "Touch glitch filtered, back to WAIT_FOR_PRESS");
             }
@@ -211,14 +221,15 @@ void TouchButton::update() {
         if (!touched) {
             last_time_ms_ = now;
             state_ = State::DEBOUNCE_RELEASE;
-        } else if (now - press_start_time_ms_ > config_.hold_time_ms) {
+        }
+        else if (now - press_start_time_ms_ > config_.hold_time_ms) {
             if (!hold_generated_) {
                 hold_generated_ = true;
                 last_hold_event_ms_ = now;
                 last_click_type_ = ButtonClickType::LONG_CLICK;
                 ESP_LOGD(TAG, "TOUCH LONG_CLICK (HOLD)");
-            } else if (config_.enable_hold_repeat &&
-                       (now - last_hold_event_ms_ >= config_.hold_repeat_interval_ms)) {
+            }
+            else if (config_.enable_hold_repeat && (now - last_hold_event_ms_ >= config_.hold_repeat_interval_ms)) {
                 last_hold_event_ms_ = now;
                 last_click_type_ = ButtonClickType::HOLD_REPEAT;
                 ESP_LOGD(TAG, "TOUCH HOLD_REPEAT");
@@ -239,7 +250,8 @@ void TouchButton::update() {
     }
 }
 
-ButtonClickType TouchButton::get_last_click() {
+ButtonClickType TouchButton::get_last_click()
+{
     ButtonClickType click = last_click_type_;
     last_click_type_ = ButtonClickType::NONE_CLICK;
     return click;
