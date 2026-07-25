@@ -42,8 +42,7 @@ class TouchButton : public IButton {
 public:
     TouchButton(idf_hals::ITouchHAL& touch_hal,
                 idf_hals::ITimerHAL& timer_hal,
-                touch_channel_handle_t chan_handle,
-                uint32_t initial_baseline,
+                int channel_id,
                 const TouchButtonConfig& config = TouchButtonConfig{});
 
     esp_err_t init() override;
@@ -67,8 +66,12 @@ private:
         DEBOUNCE_RELEASE
     };
 
+    static touch_sensor_handle_t s_sens_handle_;
+    static uint8_t s_active_instances_;
+
     idf_hals::ITouchHAL& touch_hal_;
     idf_hals::ITimerHAL& timer_hal_;
+    int channel_id_;
     touch_channel_handle_t chan_handle_;
     TouchButtonConfig config_;
 
