@@ -1,0 +1,38 @@
+# UI Inputs Component Manifest
+version: "0.1.0"
+description: "A lightweight, dependency-injected C++ user interface input library for ESP-IDF (buttons, encoders, touch, switches)."
+maintainers:
+  - "Aluizio Tomazelli <aluiziotomazelli@gmail.com>"
+
+license: "MIT"
+
+tags:
+  - inputs
+  - button
+  - encoder
+  - touch
+  - switch
+  - gpio
+  - esp32
+  - cpp
+
+targets:
+  - esp32
+  - esp32s2
+  - esp32s3
+  - esp32c3
+  - linux
+
+dependencies:
+  idf: ">=5.1"
+
+files:
+  use_gitignore: true
+  exclude:
+    - "host_test/**/*"
+    - "test_apps/**/*"
+    - ".clang-format"
+    - ".gitignore"
+
+url: "https://github.com/aluiziotomazelli/ui_inputs"
+repository: "https://github.com/aluiziotomazelli/ui_inputs.git"
