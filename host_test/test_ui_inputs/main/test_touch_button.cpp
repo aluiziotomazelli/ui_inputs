@@ -180,4 +180,20 @@ TEST_F(TouchButtonTest, PassiveRecalibration) {
     EXPECT_EQ(touch.get_baseline(), 1050);
 }
 
+TEST_F(TouchButtonTest, FallbackToRawDataType) {
+    TouchButtonConfig config;
+    TouchButton touch(mock_touch_, mock_timer_, chan_handle_, 1000, config);
+
+    // SMOOTH type returns error, RAW type succeeds with 1200
+    EXPECT_CALL(mock_touch_, read_channel_data(chan_handle_, TOUCH_CHAN_DATA_TYPE_SMOOTH, _))
+        .WillRepeatedly(Return(ESP_FAIL));
+    EXPECT_CALL(mock_touch_, read_channel_data(chan_handle_, TOUCH_CHAN_DATA_TYPE_RAW, _))
+        .WillRepeatedly(DoAll(SetArgPointee<2>(1200), Return(ESP_OK)));
+
+    touch.update(); // DEBOUNCE_PRESS
+    advance_time_ms(25);
+    touch.update();
+    EXPECT_EQ(touch.get_last_click(), ButtonClickType::NONE_CLICK);
+}
+
 } // namespace ui_inputs
