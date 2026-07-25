@@ -3,6 +3,7 @@
 #include "rotary_encoder.hpp"
 #include "hal_gpio.hpp"
 #include "hal_timer.hpp"
+#include "hal_pcnt.hpp"
 
 extern "C" void app_main(void)
 {
@@ -11,13 +12,14 @@ extern "C" void app_main(void)
     // 1. Declare the tools (stateless HALs)
     static idf_hals::GpioHAL gpio;
     static idf_hals::TimerHAL timer;
+    static idf_hals::HalPcnt pcnt;
 
     // 2. Configure and create components
     ui_inputs::ButtonConfig btn_cfg;
     ui_inputs::Button btn(gpio, timer, GPIO_NUM_4, true, btn_cfg);
     
     ui_inputs::RotaryEncoderConfig enc_cfg;
-    ui_inputs::RotaryEncoder enc(gpio, timer, GPIO_NUM_5, GPIO_NUM_6, enc_cfg);
+    ui_inputs::RotaryEncoder enc(pcnt, timer, GPIO_NUM_5, GPIO_NUM_6, enc_cfg);
 
     // Call update to verify compilation
     btn.update();
