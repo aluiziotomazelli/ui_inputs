@@ -49,6 +49,7 @@ private:
     pcnt_channel_handle_t pcnt_chan_b_{nullptr};
 
     uint32_t last_step_time_ms_{0};
+    int32_t accumulated_pulses_{0};
     int32_t accumulated_steps_{0};
     bool is_initialized_{false};
 };

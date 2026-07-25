@@ -22,6 +22,7 @@ RotaryEncoder::RotaryEncoder(
     , pcnt_chan_a_(nullptr)
     , pcnt_chan_b_(nullptr)
     , last_step_time_ms_(0)
+    , accumulated_pulses_(0)
     , accumulated_steps_(0)
     , is_initialized_(false)
 {
@@ -154,21 +155,22 @@ void RotaryEncoder::update()
         return;
     }
 
-    int count = 0;
+    int32_t count = 0;
     if (pcnt_hal_.unit_get_count(pcnt_unit_, &count) != ESP_OK) {
         return;
     }
 
-    if (count == 0) {
-        return;
+    if (count != 0) {
+        pcnt_hal_.unit_clear_count(pcnt_unit_);
+        accumulated_pulses_ += count;
     }
 
-    pcnt_hal_.unit_clear_count(pcnt_unit_);
-
     int32_t divider = config_.half_step_mode ? 2 : 4;
-    int32_t raw_steps = count / divider;
+    int32_t raw_steps = accumulated_pulses_ / divider;
 
     if (raw_steps != 0) {
+        accumulated_pulses_ -= raw_steps * divider;
+
         int32_t current_multiplier_val = 1;
 
         if (config_.acceleration_enabled) {

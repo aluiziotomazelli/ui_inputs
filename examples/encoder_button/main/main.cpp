@@ -13,29 +13,30 @@
 #include "rotary_encoder.hpp"
 #include "button.hpp"
 
-static const char *TAG = "EncoderButtonExample";
+static const char* TAG = "EncoderButtonExample";
 
 // GPIO Pin definitions for EC11 Rotary Encoder with integrated Push Button
 static constexpr gpio_num_t ENCODER_PIN_A = GPIO_NUM_18; // CLK Pin
 static constexpr gpio_num_t ENCODER_PIN_B = GPIO_NUM_19; // DT Pin
-static constexpr gpio_num_t BUTTON_PIN    = GPIO_NUM_21; // SW (Push Button) Pin
+static constexpr gpio_num_t BUTTON_PIN = GPIO_NUM_21;    // SW (Push Button) Pin
 
-struct EncoderButtonHandles {
-    ui_inputs::RotaryEncoder *encoder;
-    ui_inputs::Button *button;
+struct EncoderButtonHandles
+{
+    ui_inputs::RotaryEncoder* encoder;
+    ui_inputs::Button* button;
 };
 
 /**
  * @brief FreeRTOS Task that periodically polls the rotary encoder (PCNT hardware) and integrated push button.
  */
-static void encoder_button_task(void *pvParameters) {
-    auto *handles = static_cast<EncoderButtonHandles *>(pvParameters);
-    auto *encoder = handles->encoder;
-    auto *button  = handles->button;
+static void encoder_button_task(void* pvParameters)
+{
+    auto* handles = static_cast<EncoderButtonHandles*>(pvParameters);
+    auto* encoder = handles->encoder;
+    auto* button = handles->button;
 
     ESP_LOGI(TAG, "Encoder + Push Button task started.");
-    ESP_LOGI(TAG, "Pins configured: Pin A=GPIO%d, Pin B=GPIO%d, SW=GPIO%d", 
-             ENCODER_PIN_A, ENCODER_PIN_B, BUTTON_PIN);
+    ESP_LOGI(TAG, "Pins configured: Pin A=GPIO%d, Pin B=GPIO%d, SW=GPIO%d", ENCODER_PIN_A, ENCODER_PIN_B, BUTTON_PIN);
 
     int32_t current_position = 0;
 
@@ -49,11 +50,18 @@ static void encoder_button_task(void *pvParameters) {
         if (delta_steps != 0) {
             current_position += delta_steps;
             if (delta_steps > 0) {
-                ESP_LOGI(TAG, ">>> ROTATION [CLOCKWISE] | Delta: +%" PRId32 " | Total Position: %" PRId32 " <<<",
-                         delta_steps, current_position);
-            } else {
-                ESP_LOGI(TAG, ">>> ROTATION [COUNTER-CLOCKWISE] | Delta: %" PRId32 " | Total Position: %" PRId32 " <<<",
-                         delta_steps, current_position);
+                ESP_LOGI(
+                    TAG,
+                    ">>> ROTATION [CLOCKWISE] | Delta: +%" PRId32 " | Total Position: %" PRId32 " <<<",
+                    delta_steps,
+                    current_position);
+            }
+            else {
+                ESP_LOGI(
+                    TAG,
+                    ">>> ROTATION [COUNTER-CLOCKWISE] | Delta: %" PRId32 " | Total Position: %" PRId32 " <<<",
+                    delta_steps,
+                    current_position);
             }
         }
 
@@ -61,20 +69,20 @@ static void encoder_button_task(void *pvParameters) {
         ui_inputs::ButtonClickType click_type = button->get_last_click();
         if (click_type != ui_inputs::ButtonClickType::NONE_CLICK) {
             switch (click_type) {
-                case ui_inputs::ButtonClickType::CLICK:
-                    ESP_LOGI(TAG, ">>> BUTTON EVENT: [SINGLE CLICK] <<<");
-                    break;
-                case ui_inputs::ButtonClickType::DOUBLE_CLICK:
-                    ESP_LOGI(TAG, ">>> BUTTON EVENT: [DOUBLE CLICK] <<<");
-                    break;
-                case ui_inputs::ButtonClickType::LONG_CLICK:
-                    ESP_LOGI(TAG, ">>> BUTTON EVENT: [LONG PRESS] <<<");
-                    break;
-                case ui_inputs::ButtonClickType::VERY_LONG_CLICK:
-                    ESP_LOGI(TAG, ">>> BUTTON EVENT: [VERY LONG PRESS] <<<");
-                    break;
-                default:
-                    break;
+            case ui_inputs::ButtonClickType::CLICK:
+                ESP_LOGI(TAG, ">>> BUTTON EVENT: [SINGLE CLICK] <<<");
+                break;
+            case ui_inputs::ButtonClickType::DOUBLE_CLICK:
+                ESP_LOGI(TAG, ">>> BUTTON EVENT: [DOUBLE CLICK] <<<");
+                break;
+            case ui_inputs::ButtonClickType::LONG_CLICK:
+                ESP_LOGI(TAG, ">>> BUTTON EVENT: [LONG PRESS] <<<");
+                break;
+            case ui_inputs::ButtonClickType::VERY_LONG_CLICK:
+                ESP_LOGI(TAG, ">>> BUTTON EVENT: [VERY LONG PRESS] <<<");
+                break;
+            default:
+                break;
             }
         }
 
@@ -82,7 +90,8 @@ static void encoder_button_task(void *pvParameters) {
     }
 }
 
-extern "C" void app_main(void) {
+extern "C" void app_main(void)
+{
     ESP_LOGI(TAG, "Initializing Rotary Encoder (PCNT Hardware) + Integrated Push Button Example");
 
     // Instantiating Hardware Abstraction Layer implementations
@@ -110,7 +119,7 @@ extern "C" void app_main(void) {
     static ui_inputs::Button button(hal_gpio, hal_timer, BUTTON_PIN, true /* active_low */, btn_cfg);
     ESP_ERROR_CHECK(button.init());
 
-    static EncoderButtonHandles handles = { &encoder, &button };
+    static EncoderButtonHandles handles = {&encoder, &button};
 
     // Launch FreeRTOS Task
     xTaskCreate(encoder_button_task, "encoder_btn_task", 4096, &handles, 5, nullptr);
