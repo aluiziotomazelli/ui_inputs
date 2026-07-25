@@ -7,6 +7,8 @@
 
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::DoAll;
+using ::testing::SetArgPointee;
 using ::testing::_;
 using ::testing::SetArgPointee;
 
