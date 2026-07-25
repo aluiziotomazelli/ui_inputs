@@ -7,53 +7,20 @@ static const char* TAG = "RotaryEncoder";
 
 namespace ui_inputs {
 
-#define R_START 0x0
-#define DIR_CW 0x10
-#define DIR_CCW 0x20
-
-#define FS_R_CW_FINAL 0x1
-#define FS_R_CW_BEGIN 0x2
-#define FS_R_CW_NEXT 0x3
-#define FS_R_CCW_BEGIN 0x4
-#define FS_R_CCW_FINAL 0x5
-#define FS_R_CCW_NEXT 0x6
-
-#define H_CCW_BEGIN 0x1
-#define H_CW_BEGIN 0x2
-#define H_START_M 0x3
-#define H_CW_BEGIN_M 0x4
-#define H_CCW_BEGIN_M 0x5
-
-static const uint8_t ttable_full_step[7][4] = {
-    {R_START, FS_R_CW_BEGIN, FS_R_CCW_BEGIN, R_START},
-    {FS_R_CW_NEXT, R_START, FS_R_CW_FINAL, R_START | DIR_CW},
-    {FS_R_CW_NEXT, FS_R_CW_BEGIN, R_START, R_START},
-    {FS_R_CW_NEXT, FS_R_CW_BEGIN, FS_R_CW_FINAL, R_START},
-    {FS_R_CCW_NEXT, R_START, FS_R_CCW_BEGIN, R_START},
-    {FS_R_CCW_NEXT, FS_R_CCW_FINAL, R_START, R_START | DIR_CCW},
-    {FS_R_CCW_NEXT, FS_R_CCW_FINAL, FS_R_CCW_BEGIN, R_START},
-};
-
-static const uint8_t ttable_half_step[6][4] = {
-    {H_START_M, H_CW_BEGIN, H_CCW_BEGIN, R_START},
-    {H_START_M | DIR_CCW, R_START, H_CCW_BEGIN, R_START},
-    {H_START_M | DIR_CW, H_CW_BEGIN, R_START, R_START},
-    {H_START_M, H_CCW_BEGIN_M, H_CW_BEGIN_M, R_START},
-    {H_START_M, H_START_M, H_CW_BEGIN_M, R_START | DIR_CW},
-    {H_START_M, H_CCW_BEGIN_M, H_START_M, R_START | DIR_CCW}};
-
 RotaryEncoder::RotaryEncoder(
-    idf_hals::IGpioHAL& gpio_hal,
+    idf_hals::IPcntHAL& pcnt_hal,
     idf_hals::ITimerHAL& timer_hal,
     gpio_num_t pin_a,
     gpio_num_t pin_b,
     const RotaryEncoderConfig& config)
-    : gpio_hal_(gpio_hal)
+    : pcnt_hal_(pcnt_hal)
     , timer_hal_(timer_hal)
     , pin_a_(pin_a)
     , pin_b_(pin_b)
     , config_(config)
-    , rotary_state_(R_START)
+    , pcnt_unit_(nullptr)
+    , pcnt_chan_a_(nullptr)
+    , pcnt_chan_b_(nullptr)
     , last_step_time_ms_(0)
     , accumulated_steps_(0)
     , is_initialized_(false)
@@ -66,20 +33,85 @@ esp_err_t RotaryEncoder::init()
         return ESP_OK;
     }
 
-    gpio_config_t io_conf = {};
-    io_conf.pin_bit_mask = (1ULL << pin_a_) | (1ULL << pin_b_);
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.pull_up_en = config_.enable_internal_pull ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE;
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    esp_err_t err = ESP_OK;
 
-    esp_err_t err = gpio_hal_.config(&io_conf);
+    // 1. Create PCNT Unit
+    pcnt_unit_config_t unit_cfg = {};
+    unit_cfg.low_limit = -30000;
+    unit_cfg.high_limit = 30000;
+    err = pcnt_hal_.new_unit(&unit_cfg, &pcnt_unit_);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to configure GPIO pins %d & %d: %s", pin_a_, pin_b_, esp_err_to_name(err));
+        ESP_LOGE(TAG, "Failed to create PCNT unit: %d", err);
+        return err;
+    }
+
+    // 2. Set Glitch Filter
+    if (config_.glitch_filter_ns > 0) {
+        pcnt_glitch_filter_config_t filter_cfg = {};
+        filter_cfg.max_glitch_ns = config_.glitch_filter_ns;
+        err = pcnt_hal_.unit_set_glitch_filter(pcnt_unit_, &filter_cfg);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to set PCNT glitch filter: %d", err);
+            pcnt_hal_.del_unit(pcnt_unit_);
+            pcnt_unit_ = nullptr;
+            return err;
+        }
+    }
+
+    // 3. Create Channel A (Edge=PinA, Level=PinB)
+    pcnt_chan_config_t chan_a_cfg = {};
+    chan_a_cfg.edge_gpio_num = pin_a_;
+    chan_a_cfg.level_gpio_num = pin_b_;
+    err = pcnt_hal_.new_channel(pcnt_unit_, &chan_a_cfg, &pcnt_chan_a_);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create PCNT channel A: %d", err);
+        pcnt_hal_.del_unit(pcnt_unit_);
+        pcnt_unit_ = nullptr;
+        return err;
+    }
+
+    // 4. Create Channel B (Edge=PinB, Level=PinA)
+    pcnt_chan_config_t chan_b_cfg = {};
+    chan_b_cfg.edge_gpio_num = pin_b_;
+    chan_b_cfg.level_gpio_num = pin_a_;
+    err = pcnt_hal_.new_channel(pcnt_unit_, &chan_b_cfg, &pcnt_chan_b_);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create PCNT channel B: %d", err);
+        pcnt_hal_.del_channel(pcnt_chan_a_);
+        pcnt_hal_.del_unit(pcnt_unit_);
+        pcnt_chan_a_ = nullptr;
+        pcnt_unit_ = nullptr;
+        return err;
+    }
+
+    // 5. Configure Quadrature 4x decoding actions
+    pcnt_hal_.channel_set_edge_action(pcnt_chan_a_, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE);
+    pcnt_hal_.channel_set_level_action(pcnt_chan_a_, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+
+    pcnt_hal_.channel_set_edge_action(pcnt_chan_b_, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+    pcnt_hal_.channel_set_level_action(pcnt_chan_b_, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+
+    // 6. Enable and Start Unit
+    err = pcnt_hal_.unit_enable(pcnt_unit_);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable PCNT unit: %d", err);
+        return err;
+    }
+
+    err = pcnt_hal_.unit_clear_count(pcnt_unit_);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to clear PCNT unit count: %d", err);
+        return err;
+    }
+
+    err = pcnt_hal_.unit_start(pcnt_unit_);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start PCNT unit: %d", err);
         return err;
     }
 
     is_initialized_ = true;
+    ESP_LOGI(TAG, "RotaryEncoder PCNT initialized on pins A:%d, B:%d", pin_a_, pin_b_);
     return ESP_OK;
 }
 
@@ -89,8 +121,21 @@ esp_err_t RotaryEncoder::deinit()
         return ESP_OK;
     }
 
-    gpio_hal_.reset_pin(pin_a_);
-    gpio_hal_.reset_pin(pin_b_);
+    pcnt_hal_.unit_stop(pcnt_unit_);
+    pcnt_hal_.unit_disable(pcnt_unit_);
+    if (pcnt_chan_a_) {
+        pcnt_hal_.del_channel(pcnt_chan_a_);
+        pcnt_chan_a_ = nullptr;
+    }
+    if (pcnt_chan_b_) {
+        pcnt_hal_.del_channel(pcnt_chan_b_);
+        pcnt_chan_b_ = nullptr;
+    }
+    if (pcnt_unit_) {
+        pcnt_hal_.del_unit(pcnt_unit_);
+        pcnt_unit_ = nullptr;
+    }
+
     is_initialized_ = false;
     return ESP_OK;
 }
@@ -109,23 +154,21 @@ void RotaryEncoder::update()
         return;
     }
 
-    uint8_t current_pin_states = (gpio_hal_.get_level(pin_a_) << 1) | gpio_hal_.get_level(pin_b_);
-
-    const uint8_t(*current_ttable)[4] = config_.half_step_mode ? ttable_half_step : ttable_full_step;
-
-    rotary_state_ = current_ttable[rotary_state_ & 0x0F][current_pin_states];
-
-    uint8_t direction = rotary_state_ & 0x30;
-    int32_t steps = 0;
-
-    if (direction == DIR_CW) {
-        steps = 1;
-    }
-    else if (direction == DIR_CCW) {
-        steps = -1;
+    int count = 0;
+    if (pcnt_hal_.unit_get_count(pcnt_unit_, &count) != ESP_OK) {
+        return;
     }
 
-    if (steps != 0) {
+    if (count == 0) {
+        return;
+    }
+
+    pcnt_hal_.unit_clear_count(pcnt_unit_);
+
+    int32_t divider = config_.half_step_mode ? 2 : 4;
+    int32_t raw_steps = count / divider;
+
+    if (raw_steps != 0) {
         int32_t current_multiplier_val = 1;
 
         if (config_.acceleration_enabled) {
@@ -151,8 +194,8 @@ void RotaryEncoder::update()
             last_step_time_ms_ = timer_hal_.get_time_us() / 1000;
         }
 
-        steps *= current_multiplier_val;
-        accumulated_steps_ += steps;
+        raw_steps *= current_multiplier_val;
+        accumulated_steps_ += raw_steps;
     }
 }
 

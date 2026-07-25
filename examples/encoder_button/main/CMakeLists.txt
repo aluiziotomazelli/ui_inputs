@@ -4,5 +4,6 @@ idf_component_register(
     REQUIRES 
         ui_inputs
         idf_hals
+        esp_driver_pcnt
         freertos
 )

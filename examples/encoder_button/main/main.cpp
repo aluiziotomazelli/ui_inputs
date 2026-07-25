@@ -9,6 +9,7 @@
 
 #include "hal_gpio.hpp"
 #include "hal_timer.hpp"
+#include "hal_pcnt.hpp"
 #include "rotary_encoder.hpp"
 #include "button.hpp"
 
@@ -25,7 +26,7 @@ struct EncoderButtonHandles {
 };
 
 /**
- * @brief FreeRTOS Task that periodically polls the rotary encoder and integrated push button.
+ * @brief FreeRTOS Task that periodically polls the rotary encoder (PCNT hardware) and integrated push button.
  */
 static void encoder_button_task(void *pvParameters) {
     auto *handles = static_cast<EncoderButtonHandles *>(pvParameters);
@@ -82,19 +83,20 @@ static void encoder_button_task(void *pvParameters) {
 }
 
 extern "C" void app_main(void) {
-    ESP_LOGI(TAG, "Initializing Rotary Encoder + Integrated Push Button Example");
+    ESP_LOGI(TAG, "Initializing Rotary Encoder (PCNT Hardware) + Integrated Push Button Example");
 
     // Instantiating Hardware Abstraction Layer implementations
     static idf_hals::GpioHAL hal_gpio;
     static idf_hals::TimerHAL hal_timer;
+    static idf_hals::HalPcnt hal_pcnt;
 
-    // Instantiate Rotary Encoder component
+    // Instantiate Rotary Encoder component using ESP32 PCNT Hardware decoding
     ui_inputs::RotaryEncoderConfig encoder_cfg;
     encoder_cfg.half_step_mode = true;
     encoder_cfg.acceleration_enabled = true;
-    encoder_cfg.enable_internal_pull = true;
+    encoder_cfg.glitch_filter_ns = 1000; // 1us hardware glitch filter
 
-    static ui_inputs::RotaryEncoder encoder(hal_gpio, hal_timer, ENCODER_PIN_A, ENCODER_PIN_B, encoder_cfg);
+    static ui_inputs::RotaryEncoder encoder(hal_pcnt, hal_timer, ENCODER_PIN_A, ENCODER_PIN_B, encoder_cfg);
     ESP_ERROR_CHECK(encoder.init());
 
     // Instantiate Push Button component (Active Low with internal pull-up)
