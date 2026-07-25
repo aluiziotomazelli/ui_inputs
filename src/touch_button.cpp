@@ -57,10 +57,15 @@ esp_err_t TouchButton::init()
             TOUCH_SENSOR_V2_DEFAULT_SAMPLE_CONFIG(500, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_2V2)};
 #endif
         sens_cfg = TOUCH_SENSOR_DEFAULT_BASIC_CONFIG(TOUCH_SAMPLE_CFG_NUM, sample_cfg);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#if SOC_TOUCH_SENSOR_VERSION == 1
+        filter_cfg = {
+            .interval_ms = 10,
+            .data_filter_fn = nullptr,
+            .user_filter_ctx = nullptr
+        };
+#else
         filter_cfg = TOUCH_SENSOR_DEFAULT_FILTER_CONFIG();
-#pragma GCC diagnostic pop
+#endif
 #endif
 
         err = touch_hal_.new_controller(&sens_cfg, &s_sens_handle_);
