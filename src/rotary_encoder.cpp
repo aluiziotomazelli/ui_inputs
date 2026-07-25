@@ -56,6 +56,9 @@ RotaryEncoder::RotaryEncoder(idf_hals::IGpioHAL& gpio_hal,
       rotary_state_(R_START),
       last_step_time_ms_(0),
       accumulated_steps_(0) {
+    gpio_pullup_t pullup = config_.enable_internal_pull ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE;
+    gpio_hal_.config_input(pin_a_, pullup, GPIO_PULLDOWN_DISABLE);
+    gpio_hal_.config_input(pin_b_, pullup, GPIO_PULLDOWN_DISABLE);
 }
 
 int32_t RotaryEncoder::map_value(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {

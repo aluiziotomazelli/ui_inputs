@@ -23,6 +23,16 @@ Switch::Switch(idf_hals::IGpioHAL& gpio_hal,
       state_change_time_ms_(0),
       last_event_(SwitchEvent::NONE) {
     
+    if (config_.enable_internal_pull) {
+        gpio_hal_.config_input(
+            pin_,
+            active_low_ ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
+            active_low_ ? GPIO_PULLDOWN_DISABLE : GPIO_PULLDOWN_ENABLE
+        );
+    } else {
+        gpio_hal_.config_input(pin_, GPIO_PULLUP_DISABLE, GPIO_PULLDOWN_DISABLE);
+    }
+
     int32_t level = gpio_hal_.get_level(pin_);
     int32_t closed_level = active_low_ ? 0 : 1;
     current_state_ = (level == closed_level) ? SwitchState::CLOSED : SwitchState::OPEN;

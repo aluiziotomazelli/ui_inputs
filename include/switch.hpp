@@ -12,6 +12,7 @@ namespace ui_inputs {
  */
 struct SwitchConfig {
     uint32_t debounce_ms{20}; ///< Debounce time in milliseconds
+    bool enable_internal_pull{true}; ///< Enable internal pull-up/down resistor based on active_low
 };
 
 /**

@@ -17,6 +17,7 @@ struct ButtonConfig {
     uint32_t long_click_ms{1000};
     uint32_t very_long_click_ms{3000};
     uint32_t timeout_ms{6000};
+    bool enable_internal_pull{true};
 };
 
 /**

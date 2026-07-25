@@ -94,8 +94,7 @@ extern "C" void app_main(void)
     HalGpio gpio_hal;
     HalTimer timer_hal;
 
-    // 2. Configure a mechanical push button on GPIO 0 (active-low)
-    gpio_hal.config_input(GPIO_NUM_0, GPIO_PULLUP_ENABLE, GPIO_PULLDOWN_DISABLE);
+    // 2. Instantiate push button (GPIO input and pull-up/down are configured automatically!)
     Button btn(gpio_hal, timer_hal, GPIO_NUM_0, true);
 
     // 3. Main polling loop

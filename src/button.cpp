@@ -22,6 +22,15 @@ Button::Button(idf_hals::IGpioHAL& gpio_hal,
       press_start_time_ms_(0),
       first_click_(false),
       last_click_type_(ButtonClickType::NONE_CLICK) {
+    if (config_.enable_internal_pull) {
+        gpio_hal_.config_input(
+            pin_,
+            active_low_ ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
+            active_low_ ? GPIO_PULLDOWN_DISABLE : GPIO_PULLDOWN_ENABLE
+        );
+    } else {
+        gpio_hal_.config_input(pin_, GPIO_PULLUP_DISABLE, GPIO_PULLDOWN_DISABLE);
+    }
 }
 
 void Button::update() {

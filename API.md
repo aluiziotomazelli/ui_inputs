@@ -108,6 +108,7 @@ struct ButtonConfig {
     uint32_t long_click_time_ms{1000};     ///< Press duration to trigger LONG_CLICK
     uint32_t very_long_click_time_ms{3000};///< Press duration to trigger VERY_LONG_CLICK
     uint32_t max_click_time_ms{5000};      ///< Press duration after which error state resets button
+    bool enable_internal_pull{true};       ///< Enable internal pull-up/down resistor based on active_low
 };
 ```
 
