@@ -68,18 +68,14 @@ esp_err_t TouchButton::init() {
             s_sens_handle_ = nullptr;
             return err;
         }
-
-        err = touch_hal_.enable(s_sens_handle_);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to enable touch controller: %d", err);
-            touch_hal_.del_controller(s_sens_handle_);
-            s_sens_handle_ = nullptr;
-            return err;
-        }
 #endif
+    } else {
+        // Controller exists; temporarily disable scanning/controller to add new channel
+        touch_hal_.stop_continuous_scanning(s_sens_handle_);
+        touch_hal_.disable(s_sens_handle_);
     }
 
-    // 2. Allocate channel for this button
+    // 2. Allocate channel while controller is disabled (INIT state)
 #if __has_include("driver/touch_sens.h")
 #if SOC_TOUCH_SENSOR_VERSION == 1
     touch_channel_config_t chan_cfg = {
@@ -100,8 +96,17 @@ esp_err_t TouchButton::init() {
         ESP_LOGE(TAG, "Failed to create channel %d: %d", channel_id_, err);
         return err;
     }
+#endif
 
-    // Warm-up scans to populate channel filters before reading baseline
+    // 3. Enable controller now that channel is allocated
+    err = touch_hal_.enable(s_sens_handle_);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable touch controller: %d", err);
+        return err;
+    }
+
+    // 4. Warm-up scans to populate channel filters before reading baseline
+#if __has_include("driver/touch_sens.h")
     for (int i = 0; i < 3; i++) {
         touch_hal_.trigger_oneshot_scanning(s_sens_handle_, 2000);
     }
@@ -112,10 +117,8 @@ esp_err_t TouchButton::init() {
         touch_hal_.read_channel_data(chan_handle_, TOUCH_CHAN_DATA_TYPE_RAW, &baseline_);
     }
 
-    // 3. Start continuous scanning if this is the first active button
-    if (s_active_instances_ == 0) {
-        touch_hal_.start_continuous_scanning(s_sens_handle_);
-    }
+    // 5. Start continuous scanning
+    touch_hal_.start_continuous_scanning(s_sens_handle_);
 
     s_active_instances_++;
     is_initialized_ = true;
